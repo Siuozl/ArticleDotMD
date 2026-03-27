@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ArticleDotMD</title>
+  <meta name="theme-color" content="#0d0d0f" id="meta-theme-color" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Article.MD" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=JetBrains+Mono:wght@300;400;600&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&display=swap" rel="stylesheet" />
   <style id="theme-style"></style>
   <style>
@@ -700,6 +705,8 @@ function setConfig(name) {
   const labels = { markdown: 'Markdown', yellowdot: 'YellowDot', bmcn: 'BMCN' };
   document.getElementById('st-mode').textContent = labels[name];
 
+  updateThemeColor(name);
+
   // Re-render preview
   editor.dispatchEvent(new Event('input'));
 }
@@ -1021,8 +1028,18 @@ editor.addEventListener('keydown', e => {
 });
 
 // ══════════════════════════════════════════════════════
-//  INIT
+//  SERVICE WORKER REGISTRATION
 // ══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// Update theme-color meta to match current config bg
+function updateThemeColor(name) {
+  const colors = { markdown: '#0d0d0f', yellowdot: '#0D0A00', bmcn: '#040D18' };
+  document.getElementById('meta-theme-color').setAttribute('content', colors[name] || '#0d0d0f');
+}
+
 setConfig(currentConfig);
 updateStats();
 </script>
