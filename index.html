@@ -1,1 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArticleDotMD</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #0d0d0f;
+      --surface: #14141a;
+      --border: #232330;
+      --accent: #c8f064;
+      --accent2: #64d4f0;
+      --text: #e8e8f0;
+      --muted: #6a6a80;
+      --card: #18181f;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.5;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 24px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,13,15,0.95);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 900;
+      white-space: nowrap;
+      margin-right: 8px;
+    }
+    .logo span { color: var(--accent); }
+
+    .filename-input {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 4px 6px;
+      outline: none;
+      width: 160px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .filename-input:focus { border-color: var(--accent2); color: var(--text); }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .tb-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .tb-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0d0d0f;
+      font-weight: 600;
+    }
+    .tb-btn.primary:hover { opacity: 0.85; }
+
+    /* FORMATTING TOOLBAR */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .fmt-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .fmt-btn:hover { background: var(--border); color: var(--text); }
+
+    .sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+
+    .view-toggle { margin-left: auto; display: flex; gap: 2px; }
+    .view-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .view-btn.active { background: var(--border); color: var(--text); }
+    .view-btn:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+    /* EDITOR AREA */
+    .editor-area { display: flex; flex: 1; overflow: hidden; }
+
+    .pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .pane + .pane { border-left: 1px solid var(--border); }
+    .pane.hidden { display: none; }
+
+    .pane-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 7px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pane-label::before {
+      content: '';
+      width: 5px; height: 5px;
+      background: var(--accent);
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    #editor {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      line-height: 1.8;
+      padding: 28px;
+      resize: none;
+      outline: none;
+      overflow-y: auto;
+      tab-size: 2;
+    }
+    #editor::placeholder { color: var(--border); }
+
+    #preview {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 40px;
+      line-height: 1.8;
+    }
+
+    /* PREVIEW TYPOGRAPHY */
+    #preview h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 38px; font-weight: 900;
+      color: var(--text); margin: 0 0 20px;
+      line-height: 1.1; letter-spacing: -0.5px;
+    }
+    #preview h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px; font-weight: 700;
+      color: var(--text); margin: 36px 0 12px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    #preview h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px; font-weight: 700;
+      color: var(--text); margin: 28px 0 8px;
+    }
+    #preview h4, #preview h5, #preview h6 {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px; color: var(--accent2); margin: 20px 0 6px;
+    }
+    #preview p { color: var(--muted); margin-bottom: 14px; }
+    #preview strong { color: var(--text); }
+    #preview em { color: var(--accent2); font-style: italic; }
+    #preview del { color: var(--muted); text-decoration: line-through; }
+    #preview a { color: var(--accent); text-decoration: underline; }
+    #preview code {
+      background: #1e1e28; color: var(--accent);
+      padding: 2px 6px; font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; border-radius: 2px;
+    }
+    #preview pre {
+      background: #1e1e28; border: 1px solid var(--border);
+      padding: 20px; overflow-x: auto; margin-bottom: 16px;
+    }
+    #preview pre code { background: none; padding: 0; color: var(--accent2); }
+    #preview blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 4px 20px; margin: 16px 0;
+      color: var(--muted); font-style: italic;
+    }
+    #preview ul, #preview ol { padding-left: 24px; margin-bottom: 14px; color: var(--muted); }
+    #preview li { margin-bottom: 4px; }
+    #preview hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    #preview table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    #preview th {
+      background: var(--surface); color: var(--text);
+      padding: 8px 14px; text-align: left;
+      border: 1px solid var(--border); font-weight: 600;
+    }
+    #preview td { padding: 8px 14px; border: 1px solid var(--border); color: var(--muted); }
+    #preview img { max-width: 100%; }
+
+    /* STATUS BAR */
+    .statusbar {
+      height: 26px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 24px;
+      flex-shrink: 0;
+    }
+    .st { font-size: 11px; color: var(--muted); }
+    .st b { color: var(--text); font-weight: 400; }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: 36px; left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--accent); color: #0d0d0f;
+      font-size: 12px; font-weight: 600;
+      padding: 8px 20px; opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 1000;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #file-upload { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="logo">Article<span>.MD</span></div>
+    <input class="filename-input" id="filename" value="untitled.md" spellcheck="false" />
+    <div class="topbar-actions">
+      <button class="tb-btn" onclick="newFile()">New File</button>
+      <button class="tb-btn" onclick="document.getElementById('file-upload').click()">Upload</button>
+      <button class="tb-btn" onclick="saveFile()">Save</button>
+      <button class="tb-btn primary" onclick="copyClipboard()">Copy to Clipboard</button>
+    </div>
+    <input type="file" id="file-upload" accept=".md,.txt,.markdown" onchange="uploadFile(event)" />
+  </div>
+
+  <div class="toolbar">
+    <button class="fmt-btn" onclick="fmt('bold')"><b>B</b></button>
+    <button class="fmt-btn" onclick="fmt('italic')"><i>I</i></button>
+    <button class="fmt-btn" onclick="fmt('strike')">S̶</button>
+    <button class="fmt-btn" onclick="fmt('code')">`code`</button>
+    <div class="sep"></div>
+    <button class="fmt-btn" onclick="fmt('h1')">H1</button>
+    <button class="fmt-btn" onclick="fmt('h2')">H2</button>
+    <button class="fmt-btn" onclick="fmt('h3')">H3</button>
+    <div class="sep"></div>
+    <button class="fmt-btn" onclick="fmt('ul')">• List</button>
+    <button class="fmt-btn" onclick="fmt('ol')">1. List</button>
+    <button class="fmt-btn" onclick="fmt('blockquote')">❝ Quote</button>
+    <button class="fmt-btn" onclick="fmt('hr')">— HR</button>
+    <div class="sep"></div>
+    <button class="fmt-btn" onclick="fmt('link')">Link</button>
+    <button class="fmt-btn" onclick="fmt('image')">Image</button>
+    <button class="fmt-btn" onclick="fmt('codeblock')">Code Block</button>
+    <button class="fmt-btn" onclick="fmt('table')">Table</button>
+    <div class="view-toggle">
+      <button class="view-btn active" id="vb-split"   onclick="setView('split')">Split</button>
+      <button class="view-btn"        id="vb-edit"    onclick="setView('edit')">Edit</button>
+      <button class="view-btn"        id="vb-preview" onclick="setView('preview')">Preview</button>
+    </div>
+  </div>
+
+  <div class="editor-area">
+    <div class="pane" id="pane-edit">
+      <div class="pane-label">Markdown</div>
+      <textarea id="editor" spellcheck="true" placeholder="# Start writing...&#10;&#10;Your article goes here."></textarea>
+    </div>
+    <div class="pane" id="pane-preview">
+      <div class="pane-label">Preview</div>
+      <div id="preview"></div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <div class="st">Words: <b id="st-words">0</b></div>
+    <div class="st">Chars: <b id="st-chars">0</b></div>
+    <div class="st">Lines: <b id="st-lines">0</b></div>
+    <div class="st">Read: <b id="st-read">0 min</b></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const editor  = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+
+    // ── RENDERER ───────────────────────────────────────────────────────
+    function renderMD(src) {
+      let t = src
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;');
+
+      // fenced code blocks (protect from further processing)
+      const blocks = [];
+      t = t.replace(/```(\w*)\n?([\s\S]*?)```/gm, (_, lang, code) => {
+        const raw = code.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+        blocks.push(`<pre><code>${escHtml(raw)}</code></pre>`);
+        return `\x00BLOCK${blocks.length-1}\x00`;
+      });
+
+      // headings
+      t = t.replace(/^###### (.+)$/gm,'<h6>$1</h6>');
+      t = t.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+      t = t.replace(/^#### (.+)$/gm,  '<h4>$1</h4>');
+      t = t.replace(/^### (.+)$/gm,   '<h3>$1</h3>');
+      t = t.replace(/^## (.+)$/gm,    '<h2>$1</h2>');
+      t = t.replace(/^# (.+)$/gm,     '<h1>$1</h1>');
+
+      // hr
+      t = t.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, '<hr>');
+
+      // blockquote
+      t = t.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+      // tables
+      t = t.replace(/^\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/gm, (_, hdr, rows) => {
+        const ths = hdr.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
+        const trs = rows.trim().split('\n').map(r => {
+          const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
+          return `<tr>${tds}</tr>`;
+        }).join('');
+        return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+      });
+
+      // lists
+      t = t.replace(/((?:^[\*\-] .+\n?)+)/gm, m => {
+        const items = m.trim().split('\n').map(l=>`<li>${l.replace(/^[\*\-] /,'')}</li>`).join('');
+        return `<ul>${items}</ul>`;
+      });
+      t = t.replace(/((?:^\d+\. .+\n?)+)/gm, m => {
+        const items = m.trim().split('\n').map(l=>`<li>${l.replace(/^\d+\. /,'')}</li>`).join('');
+        return `<ol>${items}</ol>`;
+      });
+
+      // inline
+      t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      t = t.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
+      t = t.replace(/\*(.+?)\*/g,         '<em>$1</em>');
+      t = t.replace(/~~(.+?)~~/g,         '<del>$1</del>');
+      t = t.replace(/`([^`\x00]+)`/g,     '<code>$1</code>');
+      t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2">');
+      t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g,  '<a href="$2" target="_blank">$1</a>');
+
+      // paragraphs
+      t = t.split(/\n\n+/).map(block => {
+        block = block.trim();
+        if (!block) return '';
+        if (/^(\x00BLOCK|\<(h[1-6]|ul|ol|pre|blockquote|hr|table))/.test(block)) return block;
+        return `<p>${block.replace(/\n/g,'<br>')}</p>`;
+      }).join('\n');
+
+      // restore code blocks
+      t = t.replace(/\x00BLOCK(\d+)\x00/g, (_, i) => blocks[+i]);
+      return t;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── LIVE UPDATE ────────────────────────────────────────────────────
+    editor.addEventListener('input', () => {
+      preview.innerHTML = renderMD(editor.value);
+      updateStats();
+    });
+
+    function updateStats() {
+      const v = editor.value;
+      const w = v.trim() ? v.trim().split(/\s+/).length : 0;
+      document.getElementById('st-words').textContent = w;
+      document.getElementById('st-chars').textContent = v.length;
+      document.getElementById('st-lines').textContent = v.split('\n').length;
+      document.getElementById('st-read').textContent  = Math.max(1, Math.round(w/200)) + ' min';
+    }
+
+    // ── FORMAT HELPERS ─────────────────────────────────────────────────
+    function fmt(type) {
+      const s = editor.selectionStart, e = editor.selectionEnd;
+      const sel = editor.value.substring(s, e);
+      const pre = editor.value.substring(0, s);
+      const post = editor.value.substring(e);
+
+      const wrap = (l, r) => {
+        editor.value = pre + l + sel + r + post;
+        editor.setSelectionRange(s + l.length, e + l.length);
+      };
+      const linePrefix = (p) => {
+        const ls = pre.lastIndexOf('\n') + 1;
+        editor.value = editor.value.substring(0,ls) + p + editor.value.substring(ls);
+        editor.setSelectionRange(s + p.length, e + p.length);
+      };
+      const insert = (text, cur) => {
+        editor.value = pre + text + post;
+        editor.setSelectionRange(s + cur, s + cur);
+      };
+
+      switch(type) {
+        case 'bold':       wrap('**','**'); break;
+        case 'italic':     wrap('*','*'); break;
+        case 'strike':     wrap('~~','~~'); break;
+        case 'code':       wrap('`','`'); break;
+        case 'h1':         linePrefix('# '); break;
+        case 'h2':         linePrefix('## '); break;
+        case 'h3':         linePrefix('### '); break;
+        case 'ul':         linePrefix('- '); break;
+        case 'ol':         linePrefix('1. '); break;
+        case 'blockquote': linePrefix('> '); break;
+        case 'hr':         insert('\n\n---\n\n', 6); break;
+        case 'link':       wrap('[','](url)'); break;
+        case 'image':      wrap('![','](url)'); break;
+        case 'codeblock':  wrap('```\n','\n```'); break;
+        case 'table': {
+          const tbl = '\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell | Cell | Cell |\n';
+          insert(tbl, tbl.length);
+          break;
+        }
+      }
+      editor.focus();
+      editor.dispatchEvent(new Event('input'));
+    }
+
+    // ── VIEW MODES ─────────────────────────────────────────────────────
+    function setView(mode) {
+      document.getElementById('pane-edit').classList.toggle('hidden', mode === 'preview');
+      document.getElementById('pane-preview').classList.toggle('hidden', mode === 'edit');
+      ['split','edit','preview'].forEach(v =>
+        document.getElementById('vb-'+v).classList.toggle('active', v === mode));
+    }
+
+    // ── FILE ACTIONS ───────────────────────────────────────────────────
+    function newFile() {
+      if (editor.value && !confirm('Discard current content?')) return;
+      editor.value = '';
+      document.getElementById('filename').value = 'untitled.md';
+      preview.innerHTML = '';
+      updateStats();
+    }
+
+    function uploadFile(evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        editor.value = ev.target.result;
+        document.getElementById('filename').value = file.name;
+        editor.dispatchEvent(new Event('input'));
+      };
+      r.readAsText(file);
+      evt.target.value = '';
+    }
+
+    function saveFile() {
+      const name = document.getElementById('filename').value || 'article.md';
+      const blob = new Blob([editor.value], { type: 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      toast('Saved — ' + name);
+    }
+
+    function copyClipboard() {
+      navigator.clipboard.writeText(editor.value).then(() => toast('Copied to clipboard'));
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    // Tab key
+    editor.addEventListener('keydown', e => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = editor.selectionStart;
+        editor.value = editor.value.substring(0,s) + '  ' + editor.value.substring(s);
+        editor.selectionStart = editor.selectionEnd = s + 2;
+      }
+    });
+
+    updateStats();
+  </script>
+</body>
+</html>
