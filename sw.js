@@ -1,4 +1,4 @@
-const CACHE = 'articlemd-v1';
+const CACHE = 'articlemd-v1.0';
 const ASSETS = [
   './index.html',
   './manifest.json'
